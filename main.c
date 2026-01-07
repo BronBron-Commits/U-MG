@@ -119,7 +119,7 @@ int main(void)
             joy.delta = Vector2Normalize(delta);
 
             speed = Clamp(fabsf(joy.delta.x), 0.0f, 1.0f);
-            player.x += joy.delta.x * speed * 4.0f;
+            player.x += joy.delta.x * speed * 7f;
             facing = (Vector2){ joy.delta.x >= 0 ? 1 : -1, 0 };
         }
 
