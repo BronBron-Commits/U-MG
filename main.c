@@ -1,36 +1,50 @@
 #include "raylib.h"
 #include "raymath.h"
+#include <math.h>
 
 typedef struct {
     Vector2 base;
     Vector2 knob;
     float radius;
     bool active;
-    Vector2 delta;   // normalized direction
+    Vector2 delta;
 } VirtualJoystick;
 
-void DrawPlayer(Vector2 pos, Vector2 dir)
+void DrawPlayer(Vector2 pos, Vector2 dir, float speed, float time)
 {
+    // Facing angle
     float angle = atan2f(dir.y, dir.x);
 
-    // Body
-    DrawCircleV(pos, 22, DARKGREEN);
+    // Walk animation parameters
+    float bob = sinf(time * 10.0f) * speed * 4.0f;
+    float squash = 1.0f - speed * 0.15f;
+    float stretch = 1.0f + speed * 0.10f;
 
-    // Head offset in facing direction
+    // Body radii
+    float bodyRadiusX = 22 * stretch;
+    float bodyRadiusY = 22 * squash;
+
+    Vector2 drawPos = { pos.x, pos.y + bob };
+
+    // Body (squashed)
+    DrawEllipse(drawPos.x, drawPos.y, bodyRadiusX, bodyRadiusY, DARKGREEN);
+
+    // Head offset
     Vector2 headOffset = {
         cosf(angle) * 14,
         sinf(angle) * 14
     };
 
-    DrawCircleV(Vector2Add(pos, headOffset), 12, GREEN);
+    Vector2 headPos = Vector2Add(drawPos, headOffset);
+    DrawCircleV(headPos, 12, GREEN);
 
-    // Direction marker ("nose")
+    // Direction marker
     Vector2 nose = {
         cosf(angle) * 28,
         sinf(angle) * 28
     };
 
-    DrawCircleV(Vector2Add(pos, nose), 4, YELLOW);
+    DrawCircleV(Vector2Add(drawPos, nose), 4, YELLOW);
 }
 
 int main(void)
@@ -38,7 +52,7 @@ int main(void)
     const int screenWidth = 480;
     const int screenHeight = 800;
 
-    InitWindow(screenWidth, screenHeight, "U-MG v0.1.0");
+    InitWindow(screenWidth, screenHeight, "U-MG Walk Squash");
     SetTargetFPS(60);
 
     EnableCursor();
@@ -55,9 +69,12 @@ int main(void)
         .delta = { 0, 0 }
     };
 
+    float speed = 0.0f;
+
     while (!WindowShouldClose())
     {
         Vector2 mouse = GetMousePosition();
+        speed = 0.0f;
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         {
@@ -78,7 +95,9 @@ int main(void)
             joy.delta = Vector2Normalize(delta);
             facing = joy.delta;
 
-            Vector2 move = Vector2Scale(joy.delta, 3.5f);
+            speed = Clamp(dist / joy.radius, 0.0f, 1.0f);
+
+            Vector2 move = Vector2Scale(joy.delta, speed * 4.0f);
             player = Vector2Add(player, move);
         }
 
@@ -92,13 +111,12 @@ int main(void)
         BeginDrawing();
         ClearBackground(BLACK);
 
-        DrawPlayer(player, facing);
+        DrawPlayer(player, facing, speed, GetTime());
 
-        // Joystick
         DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
         DrawCircleV(joy.knob, 25, GRAY);
 
-        DrawText("Procedural Player Sprite", 20, 20, 20, RAYWHITE);
+        DrawText("Walk Squash Animation", 20, 20, 20, RAYWHITE);
 
         EndDrawing();
     }
