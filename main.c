@@ -2,6 +2,17 @@
 #include "raymath.h"
 #include <math.h>
 
+/* =============================
+   CONFIG
+============================= */
+#define SCREEN_WIDTH  480
+#define SCREEN_HEIGHT 800
+#define WORLD_WIDTH   4000.0f
+#define GROUND_Y      520.0f
+
+/* =============================
+   VIRTUAL JOYSTICK
+============================= */
 typedef struct {
     Vector2 base;
     Vector2 knob;
@@ -10,6 +21,9 @@ typedef struct {
     Vector2 delta;
 } VirtualJoystick;
 
+/* =============================
+   PLAYER RENDERING
+============================= */
 void DrawPlayer(Vector2 pos, Vector2 dir, float speed, float time)
 {
     float angle = atan2f(dir.y, dir.x);
@@ -29,35 +43,39 @@ void DrawPlayer(Vector2 pos, Vector2 dir, float speed, float time)
     DrawCircleV(Vector2Add(drawPos, nose), 4, YELLOW);
 }
 
+/* =============================
+   MAIN
+============================= */
 int main(void)
 {
-    const int screenWidth = 480;
-    const int screenHeight = 800;
-
-    InitWindow(screenWidth, screenHeight, "U-MG Moving Light");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Side Scroller");
     SetTargetFPS(60);
 
     EnableCursor();
     SetWindowFocused();
 
-    Vector2 player = { screenWidth / 2.0f, screenHeight / 2.0f };
+    /* --- Player world state --- */
+    Vector2 player = { 200.0f, GROUND_Y };
     Vector2 facing = { 1, 0 };
+    float speed = 0.0f;
 
-    // 🔆 Moving light parameters
-    Vector2 lightAnchor = { screenWidth / 2.0f, screenHeight / 3.0f };
+    /* --- Camera --- */
+    float cameraX = 0.0f;
+
+    /* --- Moving world light --- */
+    Vector2 lightAnchor = { 900.0f, 260.0f };
     float lightRadius = 180.0f;
-    float lightAmplitude = 120.0f;
+    float lightAmplitude = 160.0f;
     float lightSpeed = 1.2f;
 
+    /* --- Virtual Joystick --- */
     VirtualJoystick joy = {
-        .base = { 120, screenHeight - 120 },
-        .knob = { 120, screenHeight - 120 },
+        .base   = { 120, SCREEN_HEIGHT - 120 },
+        .knob   = { 120, SCREEN_HEIGHT - 120 },
         .radius = 60,
         .active = false,
-        .delta = { 0, 0 }
+        .delta  = { 0, 0 }
     };
-
-    float speed = 0.0f;
 
     while (!WindowShouldClose())
     {
@@ -65,6 +83,9 @@ int main(void)
         Vector2 mouse = GetMousePosition();
         speed = 0.0f;
 
+        /* =============================
+           INPUT
+        ============================= */
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         {
             if (CheckCollisionPointCircle(mouse, joy.base, joy.radius))
@@ -80,14 +101,13 @@ int main(void)
                 delta = Vector2Scale(Vector2Normalize(delta), joy.radius);
 
             joy.knob = Vector2Add(joy.base, delta);
-
             joy.delta = Vector2Normalize(delta);
-            facing = joy.delta;
 
-            speed = Clamp(dist / joy.radius, 0.0f, 1.0f);
+            speed = Clamp(fabsf(joy.delta.x), 0.0f, 1.0f);
 
-            Vector2 move = Vector2Scale(joy.delta, speed * 4.0f);
-            player = Vector2Add(player, move);
+            /* --- SIDE SCROLLER MOVEMENT (X ONLY) --- */
+            player.x += joy.delta.x * speed * 4.0f;
+            facing = (Vector2){ joy.delta.x >= 0 ? 1 : -1, 0 };
         }
 
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
@@ -97,26 +117,44 @@ int main(void)
             joy.delta = (Vector2){0, 0};
         }
 
-        // 🔄 Moving light position (pendulum)
+        /* =============================
+           CAMERA
+        ============================= */
+        cameraX = player.x - SCREEN_WIDTH * 0.4f;
+        cameraX = Clamp(cameraX, 0.0f, WORLD_WIDTH - SCREEN_WIDTH);
+
+        /* =============================
+           MOVING LIGHT (WORLD SPACE)
+        ============================= */
         Vector2 lightPos = {
             lightAnchor.x + sinf(time * lightSpeed) * lightAmplitude,
-            lightAnchor.y + cosf(time * lightSpeed * 0.7f) * (lightAmplitude * 0.4f)
+            lightAnchor.y + cosf(time * lightSpeed * 0.6f) * (lightAmplitude * 0.3f)
         };
 
+        /* =============================
+           DRAW
+        ============================= */
         BeginDrawing();
         ClearBackground(DARKBLUE);
 
-        // --- WORLD ---
-        DrawPlayer(player, facing, speed, time);
+        /* --- Ground --- */
+        DrawRectangle(-cameraX, GROUND_Y + 24, WORLD_WIDTH, 200, DARKBROWN);
 
-        // --- LIGHTING PASS ---
+        /* --- Player (world → screen) --- */
+        Vector2 screenPlayer = {
+            player.x - cameraX,
+            player.y
+        };
+        DrawPlayer(screenPlayer, facing, speed, time);
+
+        /* --- Lighting Pass --- */
         BeginBlendMode(BLEND_MULTIPLIED);
-        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.75f));
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.75f));
         EndBlendMode();
 
         BeginBlendMode(BLEND_ADDITIVE);
         DrawCircleGradient(
-            (int)lightPos.x,
+            (int)(lightPos.x - cameraX),
             (int)lightPos.y,
             lightRadius,
             Fade(YELLOW, 0.9f),
@@ -124,14 +162,13 @@ int main(void)
         );
         EndBlendMode();
 
-        // Debug light source
-        DrawCircleLines(lightPos.x, lightPos.y, 6, ORANGE);
+        /* --- Debug light source --- */
+        DrawCircleLines(lightPos.x - cameraX, lightPos.y, 6, ORANGE);
 
-        // --- UI ---
+        /* --- UI --- */
         DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
         DrawCircleV(joy.knob, 25, GRAY);
-
-        DrawText("Moving World Light", 20, 20, 20, RAYWHITE);
+        DrawText("Side Scroller Prototype", 20, 20, 20, RAYWHITE);
 
         EndDrawing();
     }
