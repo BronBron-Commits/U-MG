@@ -1,6 +1,5 @@
 #include "raylib.h"
-#include "raymath.h"   // <-- REQUIRED for Vector2 math
-#include <math.h>
+#include "raymath.h"
 
 typedef struct {
     Vector2 base;
@@ -17,11 +16,14 @@ int main(void)
     InitWindow(screenWidth, screenHeight, "Virtual Joystick Demo");
     SetTargetFPS(60);
 
+    EnableCursor();              // REQUIRED on X11
+    SetWindowFocused();          // FORCE focus
+
     Vector2 player = { screenWidth / 2.0f, screenHeight / 2.0f };
 
     VirtualJoystick joy = {
-        .base = { 100, screenHeight - 120 },
-        .knob = { 100, screenHeight - 120 },
+        .base = { 120, screenHeight - 120 },
+        .knob = { 120, screenHeight - 120 },
         .radius = 60,
         .active = false
     };
@@ -29,6 +31,7 @@ int main(void)
     while (!WindowShouldClose())
     {
         Vector2 mouse = GetMousePosition();
+        bool down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         {
@@ -36,7 +39,7 @@ int main(void)
                 joy.active = true;
         }
 
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && joy.active)
+        if (down && joy.active)
         {
             Vector2 delta = Vector2Subtract(mouse, joy.base);
             float dist = Vector2Length(delta);
@@ -46,7 +49,7 @@ int main(void)
 
             joy.knob = Vector2Add(joy.base, delta);
 
-            Vector2 move = Vector2Scale(delta, 0.08f);
+            Vector2 move = Vector2Scale(delta, 0.1f);
             player = Vector2Add(player, move);
         }
 
@@ -64,7 +67,9 @@ int main(void)
         DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
         DrawCircleV(joy.knob, 25, GRAY);
 
-        DrawText("Virtual Joystick (Touch/Mouse)", 20, 20, 20, RAYWHITE);
+        // DEBUG INPUT VISUALIZATION (temporary)
+        DrawCircleV(mouse, 6, RED);
+        DrawText(down ? "MOUSE DOWN" : "MOUSE UP", 20, 50, 20, YELLOW);
 
         EndDrawing();
     }
