@@ -44,31 +44,48 @@ void DrawPlayer(Vector2 pos, Vector2 dir, float speed, float time)
 }
 
 /* =============================
+   PARALLAX BACKGROUND
+============================= */
+void DrawParallax(float cameraX)
+{
+    float farX = -cameraX * 0.2f;
+    for (int i = -1; i < 12; i++)
+    {
+        DrawTriangle(
+            (Vector2){ farX + i * 400 + 200, 240 },
+            (Vector2){ farX + i * 400,       400 },
+            (Vector2){ farX + i * 400 + 400, 400 },
+            DARKPURPLE
+        );
+    }
+
+    float midX = -cameraX * 0.4f;
+    for (int i = -1; i < 16; i++)
+    {
+        DrawCircle(midX + i * 260, 420, 160, DARKBLUE);
+    }
+}
+
+/* =============================
    MAIN
 ============================= */
 int main(void)
 {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Side Scroller");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Side Scroller + Sun");
     SetTargetFPS(60);
 
     EnableCursor();
     SetWindowFocused();
 
-    /* --- Player world state --- */
     Vector2 player = { 200.0f, GROUND_Y };
     Vector2 facing = { 1, 0 };
     float speed = 0.0f;
-
-    /* --- Camera --- */
     float cameraX = 0.0f;
 
-    /* --- Moving world light --- */
-    Vector2 lightAnchor = { 900.0f, 260.0f };
-    float lightRadius = 180.0f;
-    float lightAmplitude = 160.0f;
-    float lightSpeed = 1.2f;
+    /* --- Sun (screen-space) --- */
+    Vector2 sunPos = { SCREEN_WIDTH - 80.0f, 80.0f };
+    float sunRadius = 220.0f;
 
-    /* --- Virtual Joystick --- */
     VirtualJoystick joy = {
         .base   = { 120, SCREEN_HEIGHT - 120 },
         .knob   = { 120, SCREEN_HEIGHT - 120 },
@@ -83,9 +100,7 @@ int main(void)
         Vector2 mouse = GetMousePosition();
         speed = 0.0f;
 
-        /* =============================
-           INPUT
-        ============================= */
+        /* INPUT */
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         {
             if (CheckCollisionPointCircle(mouse, joy.base, joy.radius))
@@ -104,8 +119,6 @@ int main(void)
             joy.delta = Vector2Normalize(delta);
 
             speed = Clamp(fabsf(joy.delta.x), 0.0f, 1.0f);
-
-            /* --- SIDE SCROLLER MOVEMENT (X ONLY) --- */
             player.x += joy.delta.x * speed * 4.0f;
             facing = (Vector2){ joy.delta.x >= 0 ? 1 : -1, 0 };
         }
@@ -117,58 +130,43 @@ int main(void)
             joy.delta = (Vector2){0, 0};
         }
 
-        /* =============================
-           CAMERA
-        ============================= */
+        player.x = Clamp(player.x, 0.0f, WORLD_WIDTH);
+
         cameraX = player.x - SCREEN_WIDTH * 0.4f;
         cameraX = Clamp(cameraX, 0.0f, WORLD_WIDTH - SCREEN_WIDTH);
 
-        /* =============================
-           MOVING LIGHT (WORLD SPACE)
-        ============================= */
-        Vector2 lightPos = {
-            lightAnchor.x + sinf(time * lightSpeed) * lightAmplitude,
-            lightAnchor.y + cosf(time * lightSpeed * 0.6f) * (lightAmplitude * 0.3f)
-        };
-
-        /* =============================
-           DRAW
-        ============================= */
+        /* DRAW */
         BeginDrawing();
-        ClearBackground(DARKBLUE);
+        ClearBackground(SKYBLUE);
 
-        /* --- Ground --- */
+        DrawParallax(cameraX);
+
         DrawRectangle(-cameraX, GROUND_Y + 24, WORLD_WIDTH, 200, DARKBROWN);
 
-        /* --- Player (world → screen) --- */
-        Vector2 screenPlayer = {
-            player.x - cameraX,
-            player.y
-        };
+        Vector2 screenPlayer = { player.x - cameraX, player.y };
         DrawPlayer(screenPlayer, facing, speed, time);
 
-        /* --- Lighting Pass --- */
+        /* --- SUN LIGHTING (SCREEN SPACE) --- */
         BeginBlendMode(BLEND_MULTIPLIED);
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.75f));
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.65f));
         EndBlendMode();
 
         BeginBlendMode(BLEND_ADDITIVE);
         DrawCircleGradient(
-            (int)(lightPos.x - cameraX),
-            (int)lightPos.y,
-            lightRadius,
-            Fade(YELLOW, 0.9f),
+            (int)sunPos.x,
+            (int)sunPos.y,
+            sunRadius,
+            Fade(YELLOW, 0.8f),
             Fade(BLACK, 0.0f)
         );
         EndBlendMode();
 
-        /* --- Debug light source --- */
-        DrawCircleLines(lightPos.x - cameraX, lightPos.y, 6, ORANGE);
+        DrawCircleLines(sunPos.x, sunPos.y, 10, ORANGE);
 
-        /* --- UI --- */
+        /* UI */
         DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
         DrawCircleV(joy.knob, 25, GRAY);
-        DrawText("Side Scroller Prototype", 20, 20, 20, RAYWHITE);
+        DrawText("Sun Lighting (Screen Space)", 20, 20, 20, RAYWHITE);
 
         EndDrawing();
     }
