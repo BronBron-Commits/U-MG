@@ -12,33 +12,26 @@ typedef struct {
 
 void DrawPlayer(Vector2 pos, Vector2 dir, float speed, float time)
 {
-    // Facing angle
     float angle = atan2f(dir.y, dir.x);
 
-    // Walk animation parameters
     float bob = sinf(time * 10.0f) * speed * 4.0f;
     float squash = 1.0f - speed * 0.15f;
     float stretch = 1.0f + speed * 0.10f;
 
-    // Body radii
     float bodyRadiusX = 22 * stretch;
     float bodyRadiusY = 22 * squash;
 
     Vector2 drawPos = { pos.x, pos.y + bob };
 
-    // Body (squashed)
     DrawEllipse(drawPos.x, drawPos.y, bodyRadiusX, bodyRadiusY, DARKGREEN);
 
-    // Head offset
     Vector2 headOffset = {
         cosf(angle) * 14,
         sinf(angle) * 14
     };
 
-    Vector2 headPos = Vector2Add(drawPos, headOffset);
-    DrawCircleV(headPos, 12, GREEN);
+    DrawCircleV(Vector2Add(drawPos, headOffset), 12, GREEN);
 
-    // Direction marker
     Vector2 nose = {
         cosf(angle) * 28,
         sinf(angle) * 28
@@ -52,7 +45,7 @@ int main(void)
     const int screenWidth = 480;
     const int screenHeight = 800;
 
-    InitWindow(screenWidth, screenHeight, "U-MG Walk Squash");
+    InitWindow(screenWidth, screenHeight, "U-MG Lighting");
     SetTargetFPS(60);
 
     EnableCursor();
@@ -109,14 +102,31 @@ int main(void)
         }
 
         BeginDrawing();
-        ClearBackground(BLACK);
+        ClearBackground(DARKBLUE);
 
+        // --- WORLD ---
         DrawPlayer(player, facing, speed, GetTime());
 
+        // --- LIGHTING PASS ---
+        BeginBlendMode(BLEND_MULTIPLIED);
+        DrawRectangle(0, 0, screenWidth, screenHeight, Fade(BLACK, 0.75f));
+        EndBlendMode();
+
+        BeginBlendMode(BLEND_ADDITIVE);
+        DrawCircleGradient(
+            (int)player.x,
+            (int)player.y,
+            140,
+            Fade(YELLOW, 0.9f),
+            Fade(BLACK, 0.0f)
+        );
+        EndBlendMode();
+
+        // --- UI ---
         DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
         DrawCircleV(joy.knob, 25, GRAY);
 
-        DrawText("Walk Squash Animation", 20, 20, 20, RAYWHITE);
+        DrawText("Simple 2D Lighting", 20, 20, 20, RAYWHITE);
 
         EndDrawing();
     }
