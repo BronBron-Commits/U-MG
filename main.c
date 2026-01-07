@@ -10,6 +10,9 @@
 #define WORLD_WIDTH   4000.0f
 #define GROUND_Y      520.0f
 
+#define GRAVITY       0.6f
+#define JUMP_VELOCITY -12.0f
+
 /* =============================
    VIRTUAL JOYSTICK
 ============================= */
@@ -71,21 +74,26 @@ void DrawParallax(float cameraX)
 ============================= */
 int main(void)
 {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Side Scroller + Sun");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Side Scroller + Jump");
     SetTargetFPS(60);
 
     EnableCursor();
     SetWindowFocused();
 
+    /* --- Player state --- */
     Vector2 player = { 200.0f, GROUND_Y };
     Vector2 facing = { 1, 0 };
     float speed = 0.0f;
+    float velocityY = 0.0f;
+    bool grounded = true;
+
     float cameraX = 0.0f;
 
     /* --- Sun (screen-space) --- */
     Vector2 sunPos = { SCREEN_WIDTH - 80.0f, 80.0f };
     float sunRadius = 220.0f;
 
+    /* --- Move joystick --- */
     VirtualJoystick joy = {
         .base   = { 120, SCREEN_HEIGHT - 120 },
         .knob   = { 120, SCREEN_HEIGHT - 120 },
@@ -94,13 +102,19 @@ int main(void)
         .delta  = { 0, 0 }
     };
 
+    /* --- Jump button --- */
+    Vector2 jumpButtonPos = { SCREEN_WIDTH - 120.0f, SCREEN_HEIGHT - 120.0f };
+    float jumpButtonRadius = 40.0f;
+
     while (!WindowShouldClose())
     {
         float time = GetTime();
         Vector2 mouse = GetMousePosition();
         speed = 0.0f;
 
-        /* INPUT */
+        /* =============================
+           INPUT — MOVE
+        ============================= */
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
         {
             if (CheckCollisionPointCircle(mouse, joy.base, joy.radius))
@@ -119,7 +133,7 @@ int main(void)
             joy.delta = Vector2Normalize(delta);
 
             speed = Clamp(fabsf(joy.delta.x), 0.0f, 1.0f);
-            player.x += joy.delta.x * speed * 7f;
+            player.x += joy.delta.x * speed * 5.5f;
             facing = (Vector2){ joy.delta.x >= 0 ? 1 : -1, 0 };
         }
 
@@ -130,12 +144,43 @@ int main(void)
             joy.delta = (Vector2){0, 0};
         }
 
+        /* =============================
+           INPUT — JUMP
+        ============================= */
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+        {
+            if (grounded &&
+                CheckCollisionPointCircle(mouse, jumpButtonPos, jumpButtonRadius))
+            {
+                velocityY = JUMP_VELOCITY;
+                grounded = false;
+            }
+        }
+
+        /* =============================
+           PHYSICS
+        ============================= */
+        velocityY += GRAVITY;
+        player.y += velocityY;
+
+        if (player.y >= GROUND_Y)
+        {
+            player.y = GROUND_Y;
+            velocityY = 0.0f;
+            grounded = true;
+        }
+
         player.x = Clamp(player.x, 0.0f, WORLD_WIDTH);
 
+        /* =============================
+           CAMERA
+        ============================= */
         cameraX = player.x - SCREEN_WIDTH * 0.4f;
         cameraX = Clamp(cameraX, 0.0f, WORLD_WIDTH - SCREEN_WIDTH);
 
-        /* DRAW */
+        /* =============================
+           DRAW
+        ============================= */
         BeginDrawing();
         ClearBackground(SKYBLUE);
 
@@ -146,7 +191,7 @@ int main(void)
         Vector2 screenPlayer = { player.x - cameraX, player.y };
         DrawPlayer(screenPlayer, facing, speed, time);
 
-        /* --- SUN LIGHTING (SCREEN SPACE) --- */
+        /* --- Sun lighting --- */
         BeginBlendMode(BLEND_MULTIPLIED);
         DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.65f));
         EndBlendMode();
@@ -163,10 +208,15 @@ int main(void)
 
         DrawCircleLines(sunPos.x, sunPos.y, 10, ORANGE);
 
-        /* UI */
+        /* --- UI --- */
         DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
         DrawCircleV(joy.knob, 25, GRAY);
-        DrawText("Sun Lighting (Screen Space)", 20, 20, 20, RAYWHITE);
+
+        DrawCircleV(jumpButtonPos, jumpButtonRadius,
+                    grounded ? Fade(GREEN, 0.6f) : Fade(GRAY, 0.4f));
+        DrawText("JUMP", jumpButtonPos.x - 22, jumpButtonPos.y - 8, 16, BLACK);
+
+        DrawText("Move + Jump Controls", 20, 20, 20, RAYWHITE);
 
         EndDrawing();
     }
