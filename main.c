@@ -74,7 +74,7 @@ void DrawParallax(float cameraX)
 ============================= */
 int main(void)
 {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Side Scroller + Jump");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Daytime Scene");
     SetTargetFPS(60);
 
     EnableCursor();
@@ -191,9 +191,9 @@ int main(void)
         Vector2 screenPlayer = { player.x - cameraX, player.y };
         DrawPlayer(screenPlayer, facing, speed, time);
 
-        /* --- Sun lighting --- */
+        /* --- DAYTIME LIGHTING (BRIGHTER) --- */
         BeginBlendMode(BLEND_MULTIPLIED);
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.65f));
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.40f));
         EndBlendMode();
 
         BeginBlendMode(BLEND_ADDITIVE);
@@ -212,11 +212,14 @@ int main(void)
         DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
         DrawCircleV(joy.knob, 25, GRAY);
 
-        DrawCircleV(jumpButtonPos, jumpButtonRadius,
-                    grounded ? Fade(GREEN, 0.6f) : Fade(GRAY, 0.4f));
+        DrawCircleV(
+            jumpButtonPos,
+            jumpButtonRadius,
+            grounded ? Fade(GREEN, 0.6f) : Fade(GRAY, 0.4f)
+        );
         DrawText("JUMP", jumpButtonPos.x - 22, jumpButtonPos.y - 8, 16, BLACK);
 
-        DrawText("Move + Jump Controls", 20, 20, 20, RAYWHITE);
+        DrawText("Daytime Side Scroller", 20, 20, 20, RAYWHITE);
 
         EndDrawing();
     }
