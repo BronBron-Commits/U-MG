@@ -34,7 +34,7 @@ int main(void)
     const int screenWidth = 480;
     const int screenHeight = 800;
 
-    InitWindow(screenWidth, screenHeight, "U-MG Static Light");
+    InitWindow(screenWidth, screenHeight, "U-MG Moving Light");
     SetTargetFPS(60);
 
     EnableCursor();
@@ -43,9 +43,11 @@ int main(void)
     Vector2 player = { screenWidth / 2.0f, screenHeight / 2.0f };
     Vector2 facing = { 1, 0 };
 
-    // 🔆 Static light position (world light)
-    Vector2 lightPos = { screenWidth / 2.0f, screenHeight / 3.0f };
+    // 🔆 Moving light parameters
+    Vector2 lightAnchor = { screenWidth / 2.0f, screenHeight / 3.0f };
     float lightRadius = 180.0f;
+    float lightAmplitude = 120.0f;
+    float lightSpeed = 1.2f;
 
     VirtualJoystick joy = {
         .base = { 120, screenHeight - 120 },
@@ -59,6 +61,7 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+        float time = GetTime();
         Vector2 mouse = GetMousePosition();
         speed = 0.0f;
 
@@ -94,11 +97,17 @@ int main(void)
             joy.delta = (Vector2){0, 0};
         }
 
+        // 🔄 Moving light position (pendulum)
+        Vector2 lightPos = {
+            lightAnchor.x + sinf(time * lightSpeed) * lightAmplitude,
+            lightAnchor.y + cosf(time * lightSpeed * 0.7f) * (lightAmplitude * 0.4f)
+        };
+
         BeginDrawing();
         ClearBackground(DARKBLUE);
 
         // --- WORLD ---
-        DrawPlayer(player, facing, speed, GetTime());
+        DrawPlayer(player, facing, speed, time);
 
         // --- LIGHTING PASS ---
         BeginBlendMode(BLEND_MULTIPLIED);
@@ -115,14 +124,14 @@ int main(void)
         );
         EndBlendMode();
 
-        // --- DEBUG: show light source ---
+        // Debug light source
         DrawCircleLines(lightPos.x, lightPos.y, 6, ORANGE);
 
         // --- UI ---
         DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
         DrawCircleV(joy.knob, 25, GRAY);
 
-        DrawText("Static World Light", 20, 20, 20, RAYWHITE);
+        DrawText("Moving World Light", 20, 20, 20, RAYWHITE);
 
         EndDrawing();
     }
