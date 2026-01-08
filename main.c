@@ -13,6 +13,9 @@
 #define GRAVITY       0.6f
 #define JUMP_VELOCITY -12.0f
 
+#define DAY_AMBIENT   0.40f
+#define NIGHT_AMBIENT 0.75f
+
 /* =============================
    VIRTUAL JOYSTICK
 ============================= */
@@ -74,13 +77,13 @@ void DrawParallax(float cameraX)
 ============================= */
 int main(void)
 {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Daytime Scene");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Day → Night Transition");
     SetTargetFPS(60);
 
     EnableCursor();
     SetWindowFocused();
 
-    /* --- Player state --- */
+    /* --- Player --- */
     Vector2 player = { 200.0f, GROUND_Y };
     Vector2 facing = { 1, 0 };
     float speed = 0.0f;
@@ -93,7 +96,11 @@ int main(void)
     Vector2 sunPos = { SCREEN_WIDTH - 80.0f, 80.0f };
     float sunRadius = 220.0f;
 
-    /* --- Move joystick --- */
+    /* --- Day/Night transition zone --- */
+    float transitionCenter = WORLD_WIDTH * 0.5f;
+    float transitionWidth  = 600.0f;
+
+    /* --- Controls --- */
     VirtualJoystick joy = {
         .base   = { 120, SCREEN_HEIGHT - 120 },
         .knob   = { 120, SCREEN_HEIGHT - 120 },
@@ -102,7 +109,6 @@ int main(void)
         .delta  = { 0, 0 }
     };
 
-    /* --- Jump button --- */
     Vector2 jumpButtonPos = { SCREEN_WIDTH - 120.0f, SCREEN_HEIGHT - 120.0f };
     float jumpButtonRadius = 40.0f;
 
@@ -179,6 +185,15 @@ int main(void)
         cameraX = Clamp(cameraX, 0.0f, WORLD_WIDTH - SCREEN_WIDTH);
 
         /* =============================
+           DAY → NIGHT BLEND
+        ============================= */
+        float t = (player.x - (transitionCenter - transitionWidth * 0.5f))
+                  / transitionWidth;
+        t = Clamp(t, 0.0f, 1.0f);
+
+        float ambient = Lerp(DAY_AMBIENT, NIGHT_AMBIENT, t);
+
+        /* =============================
            DRAW
         ============================= */
         BeginDrawing();
@@ -191,22 +206,21 @@ int main(void)
         Vector2 screenPlayer = { player.x - cameraX, player.y };
         DrawPlayer(screenPlayer, facing, speed, time);
 
-        /* --- DAYTIME LIGHTING (BRIGHTER) --- */
+        /* --- Ambient lighting --- */
         BeginBlendMode(BLEND_MULTIPLIED);
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, 0.40f));
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, ambient));
         EndBlendMode();
 
+        /* --- Sun (still visible) --- */
         BeginBlendMode(BLEND_ADDITIVE);
         DrawCircleGradient(
             (int)sunPos.x,
             (int)sunPos.y,
             sunRadius,
-            Fade(YELLOW, 0.8f),
+            Fade(YELLOW, 1.0f - t),
             Fade(BLACK, 0.0f)
         );
         EndBlendMode();
-
-        DrawCircleLines(sunPos.x, sunPos.y, 10, ORANGE);
 
         /* --- UI --- */
         DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
@@ -219,7 +233,7 @@ int main(void)
         );
         DrawText("JUMP", jumpButtonPos.x - 22, jumpButtonPos.y - 8, 16, BLACK);
 
-        DrawText("Daytime Side Scroller", 20, 20, 20, RAYWHITE);
+        DrawText("Day → Night Zone (mid-map)", 20, 20, 20, RAYWHITE);
 
         EndDrawing();
     }
