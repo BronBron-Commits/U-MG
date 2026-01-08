@@ -28,33 +28,76 @@ typedef struct {
 } VirtualJoystick;
 
 /* =============================
-   PLAYER (WITH NOSE)
+   PLAYER (COMPLEX SPRITE)
 ============================= */
 void DrawPlayer(Vector2 pos, Vector2 dir, float speed, float time)
 {
-    float angle = atan2f(dir.y, dir.x);
-    float bob = sinf(time * 10.0f) * speed * 4.0f;
+    float facing = (dir.x >= 0) ? 1.0f : -1.0f;
 
-    float squash = 1.0f - speed * 0.15f;
-    float stretch = 1.0f + speed * 0.10f;
+    float walkPhase = time * 8.0f * Clamp(speed, 0.0f, 1.0f);
+    float legSwing = sinf(walkPhase) * 8.0f;
+    float armSwing = sinf(walkPhase + PI) * 6.0f;
 
-    Vector2 p = { pos.x, pos.y + bob };
+    Vector2 torso = { pos.x, pos.y - 10 };
+    Vector2 head  = { pos.x, pos.y - 36 };
+    Vector2 hip   = { pos.x, pos.y };
 
-    DrawEllipse(p.x, p.y, 22 * stretch, 22 * squash, DARKGREEN);
+    Color shirt = GREEN;
+    Color pants = DARKGREEN;
+    Color skin  = BEIGE;
 
-    Vector2 headOffset = { cosf(angle) * 14, sinf(angle) * 14 };
-    DrawCircleV(Vector2Add(p, headOffset), 12, GREEN);
+    // Legs
+    DrawLineEx(
+        hip,
+        (Vector2){ hip.x + facing * 6 + legSwing * facing, hip.y + 22 },
+        4,
+        pants
+    );
+    DrawLineEx(
+        hip,
+        (Vector2){ hip.x - facing * 6 - legSwing * facing, hip.y + 22 },
+        4,
+        pants
+    );
 
-    Vector2 noseOffset = { cosf(angle) * 28, sinf(angle) * 28 };
-    DrawCircleV(Vector2Add(p, noseOffset), 4, YELLOW);
+    // Torso
+    DrawRectanglePro(
+        (Rectangle){ torso.x, torso.y, 18, 28 },
+        (Vector2){ 9, 14 },
+        0,
+        shirt
+    );
+
+    // Arms
+    DrawLineEx(
+        (Vector2){ torso.x + facing * 9, torso.y - 6 },
+        (Vector2){ torso.x + facing * (15 + armSwing), torso.y + 6 },
+        3,
+        shirt
+    );
+    DrawLineEx(
+        (Vector2){ torso.x - facing * 9, torso.y - 6 },
+        (Vector2){ torso.x - facing * (15 + armSwing), torso.y + 6 },
+        3,
+        shirt
+    );
+
+    // Head
+    DrawCircleV(head, 10, skin);
+
+    // Nose
+    DrawCircleV((Vector2){ head.x + facing * 10, head.y }, 3, ORANGE);
+
+    // Eye
+    DrawCircleV((Vector2){ head.x + facing * 4, head.y - 2 }, 1.5f, BLACK);
 }
 
 /* =============================
-   STARS (TWINKLE)
+   STARS
 ============================= */
 typedef struct { Vector2 pos; float phase, speed; } Star;
-
 #define STAR_COUNT 18
+
 Star stars[STAR_COUNT] = {
     {{40,60},0,1.2},{{120,90},1.1,0.9},{{200,50},2.3,1.4},
     {{280,110},0.7,1.0},{{360,70},2.9,0.8},{{430,100},1.6,1.3},
@@ -73,18 +116,17 @@ void DrawStars(float nightT, float time)
     for (int i = 0; i < STAR_COUNT; i++)
     {
         float twinkle = 0.6f + 0.4f * sinf(time * stars[i].speed + stars[i].phase);
-        float alpha = nightT * twinkle;
-        DrawCircleV(stars[i].pos, 2, Fade(RAYWHITE, alpha));
+        DrawCircleV(stars[i].pos, 2, Fade(RAYWHITE, nightT * twinkle));
     }
     EndBlendMode();
 }
 
 /* =============================
-   BIRDS (DAY ONLY)
+   BIRDS
 ============================= */
 typedef struct { float x, y, speed, phase; } Bird;
-
 #define BIRD_COUNT 6
+
 Bird birds[BIRD_COUNT] = {
     { -60, 120, 0.9f, 0.0f },
     { -220, 160, 0.7f, 1.2f },
@@ -94,37 +136,28 @@ Bird birds[BIRD_COUNT] = {
     { -680, 150, 0.75f, 1.8f }
 };
 
-static void UpdateBirds(float time)
+void UpdateBirds(float time)
 {
     for (int i = 0; i < BIRD_COUNT; i++)
     {
-        // Small vertical bob so they don't look like static V's
-        float bob = sinf(time * 1.2f + birds[i].phase) * 0.3f;
-
         birds[i].x += birds[i].speed;
-        birds[i].y += bob;
-
-        if (birds[i].x > SCREEN_WIDTH + 60)
-            birds[i].x = -80;
+        birds[i].y += sinf(time * 1.2f + birds[i].phase) * 0.3f;
+        if (birds[i].x > SCREEN_WIDTH + 80) birds[i].x = -100;
     }
 }
 
-static void DrawBirds(float dayT, float time)
+void DrawBirds(float dayT, float time)
 {
     if (dayT <= 0.01f) return;
-
-    // Slight fade in/out with day factor; darker than UI, not pure black
-    Color birdColor = Fade(BLACK, dayT * 0.8f);
+    Color c = Fade(BLACK, dayT * 0.8f);
 
     for (int i = 0; i < BIRD_COUNT; i++)
     {
-        float flap = 1.0f + 1.2f * sinf(time * 6.0f + birds[i].phase);
-        float x = birds[i].x;
-        float y = birds[i].y;
-
-        // Simple "V" bird with animated wing height
-        DrawLine((int)x, (int)y, (int)(x + 6), (int)(y + flap), birdColor);
-        DrawLine((int)(x + 6), (int)(y + flap), (int)(x + 12), (int)y, birdColor);
+        float flap = 1.0f + sinf(time * 6.0f + birds[i].phase);
+        DrawLine(birds[i].x, birds[i].y,
+                 birds[i].x + 6, birds[i].y + flap, c);
+        DrawLine(birds[i].x + 6, birds[i].y + flap,
+                 birds[i].x + 12, birds[i].y, c);
     }
 }
 
@@ -135,20 +168,15 @@ void DrawParallax(float cameraX)
 {
     float farX = -cameraX * 0.2f;
     for (int i = -1; i < 12; i++)
-    {
         DrawTriangle(
-            (Vector2){ farX + i * 400 + 200, 240 },
-            (Vector2){ farX + i * 400,       400 },
-            (Vector2){ farX + i * 400 + 400, 400 },
-            DARKPURPLE
-        );
-    }
+            (Vector2){farX+i*400+200,240},
+            (Vector2){farX+i*400,400},
+            (Vector2){farX+i*400+400,400},
+            DARKPURPLE);
 
     float midX = -cameraX * 0.4f;
     for (int i = -1; i < 16; i++)
-    {
-        DrawCircle(midX + i * 260, 420, 160, DARKBLUE);
-    }
+        DrawCircle(midX+i*260,420,160,DARKBLUE);
 }
 
 /* =============================
@@ -156,175 +184,103 @@ void DrawParallax(float cameraX)
 ============================= */
 int main(void)
 {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Birds (Day) + Sky");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Complex Sprite");
     SetTargetFPS(60);
 
-    EnableCursor();
-    SetWindowFocused();
-
-    /* Player */
-    Vector2 player = { 200.0f, GROUND_Y };
-    Vector2 facing = { 1, 0 };
-    float moveSpeed = 5.5f;
-    float speed = 0.0f;
-    float velocityY = 0.0f;
+    Vector2 player = {200, GROUND_Y};
+    Vector2 facing = {1,0};
+    float speed = 0, velY = 0;
     bool grounded = true;
+    float cameraX = 0;
 
-    float cameraX = 0.0f;
-
-    /* Day/Night zone */
     float transitionCenter = WORLD_WIDTH * 0.5f;
     float transitionWidth  = 600.0f;
 
-    /* Sun */
-    float sunX = SCREEN_WIDTH - 80.0f;
-    float sunStartY = 80.0f;
-    float sunEndY   = SCREEN_HEIGHT + 120.0f;
-    float sunRadius = 220.0f;
+    float sunX = SCREEN_WIDTH - 80;
+    float sunStartY = 80, sunEndY = SCREEN_HEIGHT + 120, sunRadius = 220;
 
-    /* Moon */
-    float moonX = 80.0f;
-    float moonStartY = SCREEN_HEIGHT + 120.0f;
-    float moonEndY   = 100.0f;
-    float moonRadius = 160.0f;
+    float moonX = 80;
+    float moonStartY = SCREEN_HEIGHT + 120, moonEndY = 100, moonRadius = 160;
 
-    /* Controls */
-    VirtualJoystick joy = {
-        .base   = { 120, SCREEN_HEIGHT - 120 },
-        .knob   = { 120, SCREEN_HEIGHT - 120 },
-        .radius = 60,
-        .active = false,
-        .delta  = { 0, 0 }
-    };
-
-    Vector2 jumpBtn = { SCREEN_WIDTH - 120.0f, SCREEN_HEIGHT - 120.0f };
-    float jumpRadius = 40.0f;
+    VirtualJoystick joy = {{120,SCREEN_HEIGHT-120},{120,SCREEN_HEIGHT-120},60};
+    Vector2 jumpBtn = {SCREEN_WIDTH-120,SCREEN_HEIGHT-120};
+    float jumpRadius = 40;
 
     while (!WindowShouldClose())
     {
         float time = GetTime();
         Vector2 mouse = GetMousePosition();
-        speed = 0.0f;
+        speed = 0;
 
-        /* =============================
-           INPUT — MOVE (JOYSTICK)
-        ============================= */
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-        {
-            if (CheckCollisionPointCircle(mouse, joy.base, joy.radius))
-                joy.active = true;
-        }
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) &&
+            CheckCollisionPointCircle(mouse, joy.base, joy.radius))
+            joy.active = true;
 
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && joy.active)
         {
-            Vector2 delta = Vector2Subtract(mouse, joy.base);
-            float dist = Vector2Length(delta);
-
-            if (dist > joy.radius)
-                delta = Vector2Scale(Vector2Normalize(delta), joy.radius);
-
-            joy.knob = Vector2Add(joy.base, delta);
-            joy.delta = Vector2Normalize(delta);
-
-            speed = Clamp(fabsf(joy.delta.x), 0.0f, 1.0f);
-            player.x += joy.delta.x * speed * moveSpeed;
-
-            facing = (Vector2){ joy.delta.x >= 0 ? 1 : -1, 0 };
+            Vector2 d = Vector2Subtract(mouse, joy.base);
+            if (Vector2Length(d) > joy.radius)
+                d = Vector2Scale(Vector2Normalize(d), joy.radius);
+            joy.delta = Vector2Normalize(d);
+            joy.knob = Vector2Add(joy.base, d);
+            speed = fabsf(joy.delta.x);
+            player.x += joy.delta.x * speed * 5.5f;
+            facing.x = joy.delta.x >= 0 ? 1 : -1;
         }
 
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON))
         {
             joy.active = false;
             joy.knob = joy.base;
-            joy.delta = (Vector2){0, 0};
         }
 
-        /* =============================
-           INPUT — JUMP BUTTON
-        ============================= */
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) &&
+            grounded && CheckCollisionPointCircle(mouse, jumpBtn, jumpRadius))
         {
-            if (grounded && CheckCollisionPointCircle(mouse, jumpBtn, jumpRadius))
-            {
-                velocityY = JUMP_VELOCITY;
-                grounded = false;
-            }
+            velY = JUMP_VELOCITY;
+            grounded = false;
         }
 
-        /* =============================
-           PHYSICS
-        ============================= */
-        velocityY += GRAVITY;
-        player.y += velocityY;
-
+        velY += GRAVITY;
+        player.y += velY;
         if (player.y >= GROUND_Y)
         {
             player.y = GROUND_Y;
-            velocityY = 0.0f;
+            velY = 0;
             grounded = true;
         }
 
-        player.x = Clamp(player.x, 0.0f, WORLD_WIDTH);
+        player.x = Clamp(player.x, 0, WORLD_WIDTH);
+        cameraX = Clamp(player.x - SCREEN_WIDTH*0.4f, 0, WORLD_WIDTH-SCREEN_WIDTH);
 
-        /* =============================
-           CAMERA
-        ============================= */
-        cameraX = player.x - SCREEN_WIDTH * 0.4f;
-        cameraX = Clamp(cameraX, 0.0f, WORLD_WIDTH - SCREEN_WIDTH);
+        float t = Clamp((player.x - (transitionCenter-transitionWidth*0.5f))/transitionWidth,0,1);
+        float ambient = Lerp(DAY_AMBIENT, NIGHT_AMBIENT, t);
 
-        /* =============================
-           DAY → NIGHT BLEND
-        ============================= */
-        float t = (player.x - (transitionCenter - transitionWidth * 0.5f)) / transitionWidth;
-        t = Clamp(t, 0.0f, 1.0f);
-
-        float dayT = 1.0f - t;
-        float nightT = t;
-
-        float ambient = Lerp(DAY_AMBIENT, NIGHT_AMBIENT, nightT);
-
-        float sunY = Lerp(sunStartY, sunEndY, nightT);
-        float moonY = Lerp(moonStartY, moonEndY, nightT);
-
-        /* Update birds (always), draw only in day */
         UpdateBirds(time);
 
-        /* =============================
-           DRAW
-        ============================= */
         BeginDrawing();
         ClearBackground(SKYBLUE);
 
         DrawParallax(cameraX);
+        DrawBirds(1.0f - t, time);
+        DrawRectangle(-cameraX, GROUND_Y+24, WORLD_WIDTH, 200, DARKBROWN);
+        DrawPlayer((Vector2){player.x-cameraX,player.y}, facing, speed, time);
 
-        // Birds are part of the daytime sky; drawn before ambient so dusk naturally darkens them.
-        DrawBirds(dayT, time);
-
-        DrawRectangle(-cameraX, GROUND_Y + 24, WORLD_WIDTH, 200, DARKBROWN);
-
-        Vector2 screenPlayer = { player.x - cameraX, player.y };
-        DrawPlayer(screenPlayer, facing, speed, time);
-
-        // Ambient darkening pass
         BeginBlendMode(BLEND_MULTIPLIED);
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, ambient));
+        DrawRectangle(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,Fade(BLACK,ambient));
         EndBlendMode();
 
-        // Stars are drawn after darkening so they don't get crushed
-        DrawStars(nightT, time);
+        DrawStars(t, time);
 
-        // Sun & moon glow
         BeginBlendMode(BLEND_ADDITIVE);
-        DrawCircleGradient((int)sunX, (int)sunY, sunRadius, Fade(YELLOW, dayT), Fade(BLACK, 0.0f));
-        DrawCircleGradient((int)moonX, (int)moonY, moonRadius, Fade(RAYWHITE, nightT), Fade(BLACK, 0.0f));
+        DrawCircleGradient(sunX, Lerp(sunStartY,sunEndY,t), sunRadius, Fade(YELLOW,1-t), Fade(BLACK,0));
+        DrawCircleGradient(moonX, Lerp(moonStartY,moonEndY,t), moonRadius, Fade(RAYWHITE,t), Fade(BLACK,0));
         EndBlendMode();
 
-        // UI
-        DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
+        DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY,0.5f));
         DrawCircleV(joy.knob, 25, GRAY);
-
-        DrawCircleV(jumpBtn, jumpRadius, grounded ? Fade(GREEN, 0.6f) : Fade(GRAY, 0.4f));
-        DrawText("JUMP", (int)jumpBtn.x - 22, (int)jumpBtn.y - 8, 16, BLACK);
+        DrawCircleV(jumpBtn, jumpRadius, grounded?Fade(GREEN,0.6f):Fade(GRAY,0.4f));
+        DrawText("JUMP", jumpBtn.x-22, jumpBtn.y-8, 16, BLACK);
 
         EndDrawing();
     }
