@@ -73,11 +73,34 @@ void DrawParallax(float cameraX)
 }
 
 /* =============================
+   STARS (SCREEN SPACE)
+============================= */
+void DrawStars(float alpha)
+{
+    if (alpha <= 0.01f) return;
+
+    Color starColor = Fade(RAYWHITE, alpha);
+
+    static Vector2 stars[] = {
+        { 40, 60 }, { 120, 90 }, { 200, 50 }, { 280, 110 },
+        { 360, 70 }, { 430, 100 }, { 90, 160 }, { 170, 140 },
+        { 260, 180 }, { 350, 150 }, { 420, 200 },
+        { 60, 240 }, { 140, 260 }, { 220, 230 }, { 310, 270 },
+        { 390, 250 }, { 450, 300 }
+    };
+
+    for (int i = 0; i < (int)(sizeof(stars)/sizeof(stars[0])); i++)
+    {
+        DrawCircleV(stars[i], 2, starColor);
+    }
+}
+
+/* =============================
    MAIN
 ============================= */
 int main(void)
 {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Sun & Moon Cycle");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Sun, Moon & Stars");
     SetTargetFPS(60);
 
     EnableCursor();
@@ -96,13 +119,13 @@ int main(void)
     float transitionCenter = WORLD_WIDTH * 0.5f;
     float transitionWidth  = 600.0f;
 
-    /* --- Sun (right side) --- */
+    /* --- Sun --- */
     float sunX = SCREEN_WIDTH - 80.0f;
     float sunStartY = 80.0f;
     float sunEndY   = SCREEN_HEIGHT + 120.0f;
     float sunRadius = 220.0f;
 
-    /* --- Moon (left side, opposite) --- */
+    /* --- Moon --- */
     float moonX = 80.0f;
     float moonStartY = SCREEN_HEIGHT + 120.0f;
     float moonEndY   = 100.0f;
@@ -197,12 +220,12 @@ int main(void)
 
         DrawPlayer((Vector2){ player.x - cameraX, player.y }, facing, speed, time);
 
-        /* Ambient */
+        /* Ambient darkening */
         BeginBlendMode(BLEND_MULTIPLIED);
         DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, ambient));
         EndBlendMode();
 
-        /* Sun */
+        /* Sun & Moon */
         BeginBlendMode(BLEND_ADDITIVE);
         DrawCircleGradient(
             (int)sunX, (int)sunY, sunRadius,
@@ -210,13 +233,15 @@ int main(void)
             Fade(BLACK, 0.0f)
         );
 
-        /* Moon */
         DrawCircleGradient(
             (int)moonX, (int)moonY, moonRadius,
             Fade(RAYWHITE, moonAlpha),
             Fade(BLACK, 0.0f)
         );
         EndBlendMode();
+
+        /* Stars (after lighting) */
+        DrawStars(t);
 
         /* UI */
         DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
