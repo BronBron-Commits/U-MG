@@ -28,7 +28,7 @@ typedef struct {
 } VirtualJoystick;
 
 /* =============================
-   PLAYER (RESTORED)
+   PLAYER (WITH NOSE)
 ============================= */
 void DrawPlayer(Vector2 pos, Vector2 dir, float speed, float time)
 {
@@ -40,14 +40,11 @@ void DrawPlayer(Vector2 pos, Vector2 dir, float speed, float time)
 
     Vector2 p = { pos.x, pos.y + bob };
 
-    // Body
     DrawEllipse(p.x, p.y, 22 * stretch, 22 * squash, DARKGREEN);
 
-    // Head
     Vector2 headOffset = { cosf(angle) * 14, sinf(angle) * 14 };
     DrawCircleV(Vector2Add(p, headOffset), 12, GREEN);
 
-    // Nose / forward piece (RESTORED)
     Vector2 noseOffset = { cosf(angle) * 28, sinf(angle) * 28 };
     DrawCircleV(Vector2Add(p, noseOffset), 4, YELLOW);
 }
@@ -80,13 +77,13 @@ void DrawParallax(float cameraX)
 ============================= */
 int main(void)
 {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Sunset (Avatar Restored)");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "U-MG Sun & Moon Cycle");
     SetTargetFPS(60);
 
     EnableCursor();
     SetWindowFocused();
 
-    /* --- Player state --- */
+    /* --- Player --- */
     Vector2 player = { 200.0f, GROUND_Y };
     Vector2 facing = { 1, 0 };
     float speed = 0.0f;
@@ -95,24 +92,29 @@ int main(void)
 
     float cameraX = 0.0f;
 
-    /* --- Day/Night transition --- */
+    /* --- Day/Night zone --- */
     float transitionCenter = WORLD_WIDTH * 0.5f;
     float transitionWidth  = 600.0f;
 
-    /* --- Sun (screen-space, setting) --- */
+    /* --- Sun (right side) --- */
     float sunX = SCREEN_WIDTH - 80.0f;
     float sunStartY = 80.0f;
     float sunEndY   = SCREEN_HEIGHT + 120.0f;
     float sunRadius = 220.0f;
 
-    /* --- Move joystick --- */
+    /* --- Moon (left side, opposite) --- */
+    float moonX = 80.0f;
+    float moonStartY = SCREEN_HEIGHT + 120.0f;
+    float moonEndY   = 100.0f;
+    float moonRadius = 160.0f;
+
+    /* --- Controls --- */
     VirtualJoystick joy = {
         .base   = { 120, SCREEN_HEIGHT - 120 },
         .knob   = { 120, SCREEN_HEIGHT - 120 },
         .radius = 60
     };
 
-    /* --- Jump button --- */
     Vector2 jumpButtonPos = { SCREEN_WIDTH - 120.0f, SCREEN_HEIGHT - 120.0f };
     float jumpButtonRadius = 40.0f;
 
@@ -179,8 +181,12 @@ int main(void)
         t = Clamp(t, 0.0f, 1.0f);
 
         float ambient = Lerp(DAY_AMBIENT, NIGHT_AMBIENT, t);
+
         float sunY = Lerp(sunStartY, sunEndY, t);
-        float sunIntensity = 1.0f - t;
+        float sunAlpha = 1.0f - t;
+
+        float moonY = Lerp(moonStartY, moonEndY, t);
+        float moonAlpha = t;
 
         /* DRAW */
         BeginDrawing();
@@ -191,20 +197,28 @@ int main(void)
 
         DrawPlayer((Vector2){ player.x - cameraX, player.y }, facing, speed, time);
 
+        /* Ambient */
         BeginBlendMode(BLEND_MULTIPLIED);
         DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, Fade(BLACK, ambient));
         EndBlendMode();
 
+        /* Sun */
         BeginBlendMode(BLEND_ADDITIVE);
         DrawCircleGradient(
-            (int)sunX,
-            (int)sunY,
-            sunRadius,
-            Fade(YELLOW, sunIntensity),
+            (int)sunX, (int)sunY, sunRadius,
+            Fade(YELLOW, sunAlpha),
+            Fade(BLACK, 0.0f)
+        );
+
+        /* Moon */
+        DrawCircleGradient(
+            (int)moonX, (int)moonY, moonRadius,
+            Fade(RAYWHITE, moonAlpha),
             Fade(BLACK, 0.0f)
         );
         EndBlendMode();
 
+        /* UI */
         DrawCircleV(joy.base, joy.radius, Fade(DARKGRAY, 0.5f));
         DrawCircleV(joy.knob, 25, GRAY);
 
